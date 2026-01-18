@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Omron BP Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            background: #1a1a2e;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #00ff88;
+            margin-bottom: 30px;
+        }
+        .dashboard {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        .bp-box {
+            background: #162447;
+            border-radius: 15px;
+            padding: 25px;
+            width: 250px;
+            border: 2px solid #00ff88;
+        }
+        .bp-title {
+            font-size: 1.2rem;
+            color: #aaa;
+            margin-bottom: 15px;
+        }
+        .bp-value {
+            font-size: 3.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .systolic { color: #ff4757; }
+        .diastolic { color: #00a8ff; }
+        .pulse { color: #9b59b6; }
+        .status {
+            background: #1e3a5f;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            font-size: 1.1rem;
+        }
+        .connected { color: #00ff88; }
+        .disconnected { color: #ff4757; }
+        .instructions {
+            background: #1e3a5f;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            text-align: left;
+            line-height: 1.6;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #2d3748;
+        }
+        th {
+            background: #2d3748;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💓 OMRON M7 BLOOD PRESSURE MONITOR</h1>
+        <p>Real-time Auto-Connect System</p>
+        
+        <div class="dashboard">
+            <div class="bp-box">
+                <div class="bp-title">SYSTOLIC</div>
+                <div id="sys" class="bp-value systolic">--</div>
+                <div>mmHg</div>
+            </div>
+            <div class="bp-box">
+                <div class="bp-title">DIASTOLIC</div>
+                <div id="dia" class="bp-value diastolic">--</div>
+                <div>mmHg</div>
+            </div>
+            <div class="bp-box">
+                <div class="bp-title">PULSE</div>
+                <div id="pulse" class="bp-value pulse">--</div>
+                <div>BPM</div>
+            </div>
+        </div>
+        
+        <div class="status">
+            Status: <span id="statusText" class="disconnected">Disconnected</span> | 
+            Last Update: <span id="lastUpdate">--:--:--</span> | 
+            Measurements: <span id="measurementCount">0</span>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 How It Works:</h3>
+            <ol>
+                <li>System auto-connects to Omron when you run the script</li>
+                <li>Take measurement on Omron device normally</li>
+                <li>Data automatically appears here</li>
+                <li>Simultaneously saved to Google Sheets (Row 2)</li>
+                <li>No manual intervention needed!</li>
+            </ol>
+        </div>
+        
+        <h3>Recent Readings:</h3>
+        <table id="readingsTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Systolic</th>
+                    <th>Diastolic</th>
+                    <th>Pulse</th>
+                </tr>
+            </thead>
+            <tbody id="readingsBody">
+                <tr><td colspan="4">Waiting for measurements...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const socket = io();
+        let measurements = [];
+        
+        socket.on('connect', () => {
+            console.log('✅ Connected to server');
+            document.getElementById('statusText').className = 'connected';
+            document.getElementById('statusText').textContent = 'Connected';
+        });
+        
+        socket.on('new_reading', (reading) => {
+            console.log('📊 New reading:', reading);
+            
+            // Update display
+            document.getElementById('sys').textContent = reading.systolic;
+            document.getElementById('dia').textContent = reading.diastolic;
+            document.getElementById('pulse').textContent = reading.pulse;
+            
+            // Update time
+            document.getElementById('lastUpdate').textContent = reading.time_display;
+            
+            // Add to table
+            addToTable(reading);
+            
+            // Update count
+            measurements.push(reading);
+            document.getElementById('measurementCount').textContent = measurements.length;
+            
+            // Visual feedback
+            flashValues();
+        });
+        
+        socket.on('system_status', (status) => {
+            if (status.connected) {
+                document.getElementById('statusText').className = 'connected';
+                document.getElementById('statusText').textContent = 'Connected';
+            } else {
+                document.getElementById('statusText').className = 'disconnected';
+                document.getElementById('statusText').textContent = 'Searching...';
+            }
+        });
+        
+        function addToTable(reading) {
+            const tableBody = document.getElementById('readingsBody');
+            
+            // Remove placeholder
+            if (tableBody.rows[0].cells[0].textContent.includes('Waiting')) {
+                tableBody.innerHTML = '';
+            }
+            
+            // Add new row
+            const row = tableBody.insertRow(0);
+            row.innerHTML = `
+                <td>${reading.time_display}</td>
+                <td class="systolic">${reading.systolic}</td>
+                <td class="diastolic">${reading.diastolic}</td>
+                <td class="pulse">${reading.pulse}</td>
+            `;
+            
+            // Keep only 10 rows
+            if (tableBody.rows.length > 10) {
+                tableBody.deleteRow(10);
+            }
+        }
+        
+        function flashValues() {
+            const values = document.querySelectorAll('.bp-value');
+            values.forEach(v => {
+                v.style.transform = 'scale(1.2)';
+                setTimeout(() => v.style.transform = 'scale(1)', 300);
+            });
+        }
+        
+        // Request initial status
+        socket.emit('request_status');
+    </script>
+</body>
+</html>

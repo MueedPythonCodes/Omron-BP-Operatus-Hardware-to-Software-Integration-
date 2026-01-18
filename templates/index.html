@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live BP Dashboard</title>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #1e293b; padding: 50px; border-radius: 20px; text-align: center; border: 2px solid #3b82f6; width: 400px; }
+        .sys-dia { font-size: 5rem; font-weight: bold; color: #60a5fa; margin: 10px 0; }
+        .pulse { font-size: 2rem; color: #fbbf24; }
+        .status { margin-top: 20px; color: #94a3b8; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div style="text-transform: uppercase; letter-spacing: 2px;">Latest Measurement</div>
+        <div class="sys-dia" id="bp">--/--</div>
+        <div class="pulse">❤️ <span id="bpm">--</span> BPM</div>
+        <div class="status" id="timestamp">Waiting for sync...</div>
+    </div>
+
+    <script>
+        function updateDashboard() {
+            fetch('/api/latest')
+                .then(res => res.json())
+                .then(data => {
+                    if(!data.error) {
+                        document.getElementById('bp').innerText = `${data.sys}/${data.dia}`;
+                        document.getElementById('bpm').innerText = data.bpm;
+                        document.getElementById('timestamp').innerText = `Last Sync: ${data.date} ${data.time} (${data.user})`;
+                    }
+                });
+        }
+        setInterval(updateDashboard, 3000); // Har 3 sec baad auto-check
+        updateDashboard();
+    </script>
+</body>
+</html>

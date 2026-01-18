@@ -1,0 +1,14 @@
+Flask
+Flask-SocketIO
+bleak
+gspread
+google-auth
+python-dotenv
+eventlet
+python-engineio
+python-socketio
+oauth2client
+matplotlib
+terminaltables
+pyserial==3.5
+Flask-CORS==4.0.0

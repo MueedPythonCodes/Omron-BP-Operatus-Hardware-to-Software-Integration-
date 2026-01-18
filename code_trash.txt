@@ -1,0 +1,1065 @@
+# index.html
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omron M7 BP Monitor - Live Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2980, #26d0ce);
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #1a2980;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .header h1 i {
+            color: #e74c3c;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-radius: 50px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4757;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.connected {
+            background: #2ed573;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        
+        @media (max-width: 992px) {
+            .dashboard {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .bp-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            text-align: center;
+        }
+        
+        .bp-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .bp-title {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .bp-title i {
+            color: #667eea;
+        }
+        
+        .bp-value {
+            font-size: 72px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 10px;
+        }
+        
+        .systolic .bp-value {
+            color: #e74c3c;
+        }
+        
+        .diastolic .bp-value {
+            color: #3498db;
+        }
+        
+        .pulse .bp-value {
+            color: #9b59b6;
+        }
+        
+        .bp-unit {
+            font-size: 24px;
+            color: #7f8c8d;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        
+        .bp-category {
+            font-size: 18px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+        
+        .category-normal {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .category-elevated {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .category-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .info-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            grid-column: 1 / -1;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f1f1;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            color: #636e72;
+            font-weight: 500;
+        }
+        
+        .info-value {
+            color: #2c3e50;
+            font-weight: 600;
+            padding: 6px 12px;
+            background: #f8f9fa;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .info-value.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .info-value.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .history-card {
+            grid-column: 1 / -1;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .history-table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .history-table td {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .history-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .reading-time {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .reading-systolic {
+            color: #e74c3c;
+            font-weight: 700;
+        }
+        
+        .reading-diastolic {
+            color: #3498db;
+            font-weight: 700;
+        }
+        
+        .reading-pulse {
+            color: #9b59b6;
+            font-weight: 700;
+        }
+        
+        .google-sheets-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: #34a853;
+            color: white;
+            border-radius: 25px;
+            font-size: 14px;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 25px;
+            border-left: 5px solid #26d0ce;
+        }
+        
+        .instructions h3 {
+            color: #1a2980;
+            margin-bottom: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+            color: #2c3e50;
+        }
+        
+        .instructions li {
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        
+        .footer {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            font-size: 14px;
+            margin-top: 30px;
+        }
+        
+        .last-update {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>
+                <i class="fas fa-heartbeat"></i>
+                OMRON M7 BLOOD PRESSURE MONITOR
+            </h1>
+            <p class="subtitle">Real-time Bluetooth Monitoring System</p>
+            <div class="status-badge">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Connecting...</span>
+            </div>
+        </header>
+        
+        <!-- BP Readings Dashboard -->
+        <div class="dashboard">
+            <!-- Systolic Card -->
+            <div class="bp-card systolic">
+                <h2 class="bp-title"><i class="fas fa-heart"></i> SYSTOLIC</h2>
+                <div class="bp-value" id="systolicValue">--</div>
+                <div class="bp-unit">mmHg</div>
+                <div class="bp-category" id="systolicCategory">--</div>
+            </div>
+            
+            <!-- Diastolic Card -->
+            <div class="bp-card diastolic">
+                <h2 class="bp-title"><i class="fas fa-heart"></i> DIASTOLIC</h2>
+                <div class="bp-value" id="diastolicValue">--</div>
+                <div class="bp-unit">mmHg</div>
+                <div class="bp-category" id="diastolicCategory">--</div>
+            </div>
+            
+            <!-- Pulse Card -->
+            <div class="bp-card pulse">
+                <h2 class="bp-title"><i class="fas fa-heartbeat"></i> PULSE</h2>
+                <div class="bp-value" id="pulseValue">--</div>
+                <div class="bp-unit">BPM</div>
+                <div class="bp-category" id="pulseCategory">--</div>
+            </div>
+            
+            <!-- System Info Card -->
+            <div class="info-card">
+                <h2 class="bp-title"><i class="fas fa-info-circle"></i> SYSTEM INFORMATION</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Device Status:</span>
+                        <span class="info-value" id="deviceStatus">Disconnected</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Last Update:</span>
+                        <span class="info-value" id="lastUpdateTime">--:--:--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">MAC Address:</span>
+                        <span class="info-value" id="macAddress">{{ config.mac_address }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Connection Type:</span>
+                        <span class="info-value" id="connectionType">Bluetooth</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Google Sheets:</span>
+                        <span class="info-value connected" id="sheetsStatus">Active</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">System Uptime:</span>
+                        <span class="info-value" id="uptime">0s</span>
+                    </div>
+                </div>
+                <div class="google-sheets-badge">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Auto-saving to Google Sheets (Row 2)</span>
+                </div>
+            </div>
+            
+            <!-- Recent Readings Card -->
+            <div class="history-card">
+                <h2 class="bp-title"><i class="fas fa-history"></i> RECENT MEASUREMENTS</h2>
+                <div style="overflow-x: auto;">
+                    <table class="history-table" id="readingsTable">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Date</th>
+                                <th>Systolic (mmHg)</th>
+                                <th>Diastolic (mmHg)</th>
+                                <th>Pulse (BPM)</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="readingsBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 40px;">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    Waiting for first measurement...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3><i class="fas fa-book"></i> HOW TO USE</h3>
+            <ol>
+                <li><strong>Turn ON</strong> your Omron M7 device</li>
+                <li><strong>Connect</strong> the arm cuff properly</li>
+                <li><strong>Start measurement</strong> on the Omron device</li>
+                <li><strong>Data will automatically appear</strong> on this dashboard</li>
+                <li><strong>All readings are saved</strong> to Google Sheets in real-time</li>
+                <li><strong>System auto-reconnects</strong> if device is disconnected</li>
+            </ol>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Omron M7 Intelli IT Blood Pressure Monitoring System</p>
+            <div class="last-update">
+                <i class="fas fa-circle"></i>
+                <span>Last sync: <span id="lastSync">--:--:--</span></span>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let systemStartTime = Date.now();
+        let readingsHistory = [];
+        
+        // Update uptime counter
+        function updateUptime() {
+            const uptimeElement = document.getElementById('uptime');
+            const elapsed = Math.floor((Date.now() - systemStartTime) / 1000);
+            
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            
+            uptimeElement.textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Get BP category
+        function getBPCategory(type, value) {
+            if (type === 'systolic') {
+                if (value < 120) return {text: 'Normal', class: 'category-normal'};
+                if (value < 140) return {text: 'Elevated', class: 'category-elevated'};
+                return {text: 'High', class: 'category-high'};
+            } else if (type === 'diastolic') {
+                if (value < 80) return {text: 'Normal', class: 'category-normal'};
+                if (value < 90) return {text: 'Elevated', class: 'category-elevated'};
+                return {text: 'High', class: 'category-high'};
+            } else { // pulse
+                if (value >= 60 && value <= 100) return {text: 'Normal', class: 'category-normal'};
+                if (value < 60) return {text: 'Low', class: 'category-elevated'};
+                return {text: 'High', class: 'category-high'};
+            }
+        }
+        
+        // Update last sync time
+        function updateLastSync() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            document.getElementById('lastSync').textContent = timeString;
+        }
+        
+        // Socket.IO event handlers
+        socket.on('connect', () => {
+            console.log('✅ Connected to server');
+            document.getElementById('statusText').textContent = 'Connected to Server';
+            document.getElementById('statusDot').className = 'status-dot connected';
+        });
+        
+        socket.on('new_reading', (reading) => {
+            console.log('📊 New BP reading:', reading);
+            
+            // Update BP values
+            document.getElementById('systolicValue').textContent = reading.systolic;
+            document.getElementById('diastolicValue').textContent = reading.diastolic;
+            document.getElementById('pulseValue').textContent = reading.pulse;
+            
+            // Update categories
+            const sysCategory = getBPCategory('systolic', reading.systolic);
+            const diaCategory = getBPCategory('diastolic', reading.diastolic);
+            const pulseCategory = getBPCategory('pulse', reading.pulse);
+            
+            const systolicCat = document.getElementById('systolicCategory');
+            systolicCat.textContent = sysCategory.text;
+            systolicCat.className = 'bp-category ' + sysCategory.class;
+            
+            const diastolicCat = document.getElementById('diastolicCategory');
+            diastolicCat.textContent = diaCategory.text;
+            diastolicCat.className = 'bp-category ' + diaCategory.class;
+            
+            const pulseCat = document.getElementById('pulseCategory');
+            pulseCat.textContent = pulseCategory.text;
+            pulseCat.className = 'bp-category ' + pulseCategory.class;
+            
+            // Update last update time
+            document.getElementById('lastUpdateTime').textContent = reading.time_display;
+            
+            // Update device status
+            document.getElementById('deviceStatus').textContent = reading.status;
+            document.getElementById('deviceStatus').className = 
+                reading.source === 'REAL' ? 'info-value connected' : 'info-value disconnected';
+            
+            // Update connection type
+            document.getElementById('connectionType').textContent = 
+                reading.source === 'REAL' ? 'Bluetooth' : 'Simulated';
+            
+            updateLastSync();
+            
+            // Add to history table
+            addToHistoryTable(reading);
+            
+            // Add animation effect
+            const cards = document.querySelectorAll('.bp-value');
+            cards.forEach(card => {
+                card.style.transform = 'scale(1.1)';
+                setTimeout(() => {
+                    card.style.transform = 'scale(1)';
+                }, 300);
+            });
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('❌ Disconnected from server');
+            document.getElementById('statusText').textContent = 'Disconnected';
+            document.getElementById('statusDot').className = 'status-dot';
+        });
+        
+        socket.on('system_status', (status) => {
+            // Update system information
+            document.getElementById('statusText').textContent = status.status;
+            document.getElementById('statusDot').className = 
+                status.connected ? 'status-dot connected' : 'status-dot';
+            
+            document.getElementById('deviceStatus').textContent = 
+                status.connected ? 'Connected' : 'Disconnected';
+            document.getElementById('deviceStatus').className = 
+                status.connected ? 'info-value connected' : 'info-value disconnected';
+        });
+        
+        // Add reading to history table
+        function addToHistoryTable(reading) {
+            const tableBody = document.getElementById('readingsBody');
+            
+            // Remove placeholder if present
+            if (tableBody.rows[0].cells[0].innerHTML.includes('Waiting')) {
+                tableBody.innerHTML = '';
+            }
+            
+            // Create new row
+            const newRow = tableBody.insertRow(0);
+            newRow.innerHTML = `
+                <td class="reading-time">${reading.time_display}</td>
+                <td>${reading.date_display}</td>
+                <td class="reading-systolic">${reading.systolic}</td>
+                <td class="reading-diastolic">${reading.diastolic}</td>
+                <td class="reading-pulse">${reading.pulse}</td>
+                <td>
+                    <span class="info-value ${reading.source === 'REAL' ? 'connected' : 'disconnected'}">
+                        ${reading.source === 'REAL' ? '📡 REAL' : '⚡ SIMULATED'}
+                    </span>
+                </td>
+            `;
+            
+            // Keep only last 10 readings
+            if (tableBody.rows.length > 10) {
+                tableBody.deleteRow(10);
+            }
+            
+            // Update readings count
+            readingsHistory.push(reading);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Start uptime counter
+            setInterval(updateUptime, 1000);
+            
+            // Set initial values
+            document.getElementById('macAddress').textContent = 
+                '{{ config.mac_address }}' || '00:5F:BF:2B:63:A8';
+        });
+        
+        // Request initial status
+        socket.emit('request_status');
+        socket.emit('request_readings', { count: 10 });
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# omron_main.py:
+
+
+import sys
+import signal
+import asyncio
+from threading import Thread, Lock
+import time
+from datetime import datetime
+from config import Config
+from omron_device import OmronDevice
+from google_sheets import GoogleSheetsHandler
+from webserver import create_app, socketio
+
+class OmronSystem:
+    def __init__(self):
+        self.device = None
+        self.google_sheets = None
+        self.app = None
+        self.running = False
+        self.current_reading = None 
+        self.system_start_time = datetime.now()
+        self.recent_readings = []
+        self.max_readings = 50
+        self.reading_lock = Lock()
+        
+    def initialize(self):
+        print("=" * 60)
+        print("OMRON M7 AUTO-RECONNECT SYSTEM ACTIVE")
+        print("=" * 60)
+        self.device = OmronDevice(
+            mac_address=Config.OMRON_MAC_ADDRESS,
+            device_name=Config.DEVICE_NAME
+        )
+        
+        if Config.GOOGLE_SHEET_ID:
+            self.google_sheets = GoogleSheetsHandler()
+            self.google_sheets.initialize()
+        
+        # Web server initialization
+        self.app = create_app(self)
+        self.app.config['SYSTEM'] = self
+        
+    def get_status(self):
+        with self.reading_lock:
+            connected = self.device.connected if self.device else False
+            return {
+                'connected': connected,
+                'device': self.device.device_name if self.device else "Disconnected",
+                'last_reading': self.current_reading,
+                'uptime': str(datetime.now() - self.system_start_time).split('.')[0],
+                'status': 'Connected' if connected else 'Searching...'
+            }
+
+    def get_recent_readings(self, count=10):
+        with self.reading_lock:
+            return self.recent_readings[:count]
+
+    def _google_sheets_sync_worker(self):
+        """Save to Google Sheets when reading is received"""
+        while self.running:
+            try:
+                time.sleep(1)
+                if self.google_sheets and self.current_reading:
+                    with self.reading_lock:
+                        reading = self.current_reading.copy()
+                    
+                    # Save to Google Sheets
+                    success = self.google_sheets.save_reading(reading)
+                    if success:
+                        print(f"✅ Sheet Updated: {reading['systolic']}/{reading['diastolic']} mmHg")
+                    
+            except Exception as e:
+                print(f"⚠️ Sync Error: {e}")
+
+    def _run_async_worker(self):
+        """Aggressive Auto-Reconnect Loop for Omron"""
+        while self.running:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # Start Omron device monitoring
+                loop.run_until_complete(self.device.monitor_measurements(self.handle_new_reading))
+            except Exception as e:
+                print(f"❌ Device loop error: {e}")
+            finally:
+                loop.close()
+            time.sleep(1)
+
+    def handle_new_reading(self, reading):
+        """Handle new BP reading from Omron"""
+        if not reading:
+            return
+            
+        print(f"📊 NEW READING: {reading['systolic']}/{reading['diastolic']} mmHg, {reading['pulse']} BPM")
+        
+        with self.reading_lock:
+            self.current_reading = reading
+            self.recent_readings.insert(0, reading)
+            if len(self.recent_readings) > self.max_readings:
+                self.recent_readings.pop()
+        
+        # Send to web dashboard
+        socketio.emit('new_reading', reading)
+        socketio.emit('system_status', self.get_status())
+
+    def start(self):
+        self.running = True
+        # Bluetooth Thread
+        Thread(target=self._run_async_worker, daemon=True).start()
+        # Sheets Sync Thread
+        Thread(target=self._google_sheets_sync_worker, daemon=True).start()
+        
+        print(f"🚀 Dashboard: http://localhost:{Config.PORT}")
+        socketio.run(self.app, host=Config.HOST, port=Config.PORT, debug=False, use_reloader=False, allow_unsafe_werkzeug=True)
+
+    def stop(self):
+        self.running = False
+        sys.exit(0)
+
+if __name__ == "__main__":
+    system = OmronSystem()
+    system.initialize()
+    system.start()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# omron_device.py
+
+
+
+
+import asyncio
+from datetime import datetime
+from bleak import BleakClient, BleakScanner
+import struct
+
+class OmronDevice:
+    def __init__(self, mac_address, device_name):
+        self.mac_address = mac_address
+        self.device_name = device_name
+        self.connected = False
+        self.client = None
+        
+        # Omron M7 Blood Pressure Service UUIDs
+        self.BP_SERVICE_UUID = "00001810-0000-1000-8000-00805f9b34fb"
+        self.BP_CHAR_UUID = "00002a35-0000-1000-8000-00805f9b34fb"
+        
+    def notification_handler(self, characteristic, data):
+        """Handle incoming BP data from Omron"""
+        try:
+            print(f"📥 Raw data received: {data.hex()}")
+            
+            # Omron M7 Intelli IT data format (8+ bytes)
+            if len(data) >= 8:
+                # Parse according to Omron specification
+                systolic = data[1]  # Byte 1: Systolic
+                diastolic = data[3]  # Byte 3: Diastolic
+                pulse = data[7] if len(data) > 7 else 0  # Byte 7: Pulse
+                
+                # Validate data (non-zero values)
+                if systolic > 0 and diastolic > 0:
+                    reading = {
+                        'systolic': systolic,
+                        'diastolic': diastolic,
+                        'pulse': pulse,
+                        'timestamp': datetime.now().isoformat(),
+                        'time_display': datetime.now().strftime("%H:%M:%S"),
+                        'date_display': datetime.now().strftime("%Y-%m-%d"),
+                        'status': 'Connected',
+                        'device': self.device_name,
+                        'source': 'REAL'
+                    }
+                    
+                    # Callback to main system
+                    if self.callback:
+                        self.callback(reading)
+                else:
+                    print(f"⚠️ Invalid data: Sys={systolic}, Dia={diastolic}")
+            else:
+                print(f"⚠️ Incomplete data: {len(data)} bytes")
+                
+        except Exception as e:
+            print(f"❌ Data parsing error: {e}")
+
+    async def enable_notifications(self):
+        """Enable notifications for BP data"""
+        try:
+            if not self.client or not self.client.is_connected:
+                return False
+                
+            # Get services
+            services = self.client.services
+            
+            # Find BP characteristic
+            bp_char = None
+            for service in services:
+                if "1810" in service.uuid.lower() or service.uuid.lower() == self.BP_SERVICE_UUID.lower():
+                    for char in service.characteristics:
+                        if "2a35" in char.uuid.lower() or char.uuid.lower() == self.BP_CHAR_UUID.lower():
+                            bp_char = char
+                            print(f"✅ Found BP characteristic: {char.uuid}")
+                            break
+                if bp_char:
+                    break
+            
+            if bp_char:
+                # Enable notifications
+                await self.client.start_notify(bp_char.uuid, self.notification_handler)
+                print("🔔 Notifications enabled - Ready for measurement")
+                return True
+            else:
+                print("❌ BP characteristic not found")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Notification setup error: {e}")
+            return False
+
+    async def monitor_measurements(self, callback):
+        """Monitor for BP measurements continuously"""
+        self.callback = callback
+        
+        while True:
+            try:
+                print("🔍 Searching for Omron device...")
+                self.connected = False
+                
+                # Scan for device
+                device = await BleakScanner.find_device_by_address(
+                    self.mac_address, 
+                    timeout=10.0
+                )
+                
+                if not device:
+                    print(f"❌ Device {self.mac_address} not found")
+                    await asyncio.sleep(5)
+                    continue
+                
+                print(f"✅ Found device: {device.name or 'Unknown'} at {device.address}")
+                
+                # Connect to device
+                async with BleakClient(device, timeout=30.0) as client:
+                    self.client = client
+                    self.connected = True
+                    print(f"🔗 Connected to Omron device")
+                    
+                    # Enable notifications
+                    if await self.enable_notifications():
+                        print("👂 Listening for measurements...")
+                        print("📢 **START MEASUREMENT ON OMRON DEVICE NOW**")
+                        
+                        # Keep connection alive and wait for measurements
+                        try:
+                            while client.is_connected:
+                                await asyncio.sleep(1)
+                        except:
+                            pass
+                    
+            except asyncio.TimeoutError:
+                print("⏰ Connection timeout")
+            except Exception as e:
+                print(f"❌ Connection error: {e}")
+            
+            self.connected = False
+            print("🔄 Reconnecting in 3 seconds...")
+            await asyncio.sleep(3)
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+
+
+
+
+
+
+# config.py
+
+
+
+
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    """Application configuration for Omron M7"""
+    
+    # Flask configuration
+    SECRET_KEY = os.getenv('SECRET_KEY', 'omron-secret-key-2024')
+    PORT = int(os.getenv('PORT', 5001))
+    HOST = os.getenv('HOST', '0.0.0.0')
+    DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+    
+    # Omron Bluetooth configuration
+    OMRON_MAC_ADDRESS = os.getenv('OMRON_MAC_ADDRESS', '00:5F:BF:2B:63:A8')
+    DEVICE_NAME = os.getenv('DEVICE_NAME', 'Omron M7 Intelli IT')
+    
+    # Omron UUIDs
+    BP_SERVICE_UUID = "00001810-0000-1000-8000-00805f9b34fb"
+    BP_CHAR_UUID = "00002a35-0000-1000-8000-00805f9b34fb"
+    
+    # Google Sheets configuration
+    GOOGLE_SHEET_ID = os.getenv('GOOGLE_SHEET_ID', '1OCnS4sXEYRbx_4cRO4lz_JudUNR-5kf3yixCLwhPKpw')
+    GOOGLE_CREDENTIALS_FILE = os.getenv('GOOGLE_CREDENTIALS_FILE', 'service_account.json')
+    WORKSHEET_NAME = os.getenv('WORKSHEET_NAME', 'BP_Readings')
+    
+    # Data storage
+    DATA_FILE = 'bp_data.json'
+    CSV_FILE = 'bp_log.csv'
+    
+    # Web interface
+    AUTO_REFRESH = int(os.getenv('AUTO_REFRESH', 2))
+    MAX_READINGS_DISPLAY = int(os.getenv('MAX_READINGS_DISPLAY', 50))
+    
+    @classmethod
+    def validate(cls):
+        """Validate required configuration"""
+        errors = []
+        
+        if not cls.OMRON_MAC_ADDRESS:
+            errors.append("OMRON_MAC_ADDRESS not configured")
+        
+        if not cls.GOOGLE_SHEET_ID:
+            errors.append("GOOGLE_SHEET_ID not configured")
+        
+        if errors:
+            print("\n⚠ Configuration errors:")
+            for error in errors:
+                print(f"   ❌ {error}")
+            return False
+        return True
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
