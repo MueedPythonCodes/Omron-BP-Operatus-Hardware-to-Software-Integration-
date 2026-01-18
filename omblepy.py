@@ -15,7 +15,7 @@ parentService_UUID        = "ecbe3980-c9a2-11e1-b1bd-0002a5d5c51b"
 
 #global variables
 bleClient           = None
-examplePairingKey = bytearray.fromhex("E9EB2256E0D94BC0A5220F9B14AAFB6F") #arbitrary choise
+examplePairingKey = bytearray.fromhex("dedfT80vfbbfbfgbgfgdfddfgfbfbf") # add your key here
 deviceSpecific      = None                            #imported module for each device
 logger              = logging.getLogger("omblepy")
 
@@ -429,6 +429,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"CONNECTION_ERROR: {e}")
         sys.exit(0)
+
 
 
 
